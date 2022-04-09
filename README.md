@@ -17,10 +17,6 @@ Thank you for considering contributing to the Installer! The contribution guide 
 
 In order to ensure that the TYPO3 community is welcoming to all, please review and abide by the [Code of Conduct](https://typo3.org/community/values/code-of-conduct).
 
-## Security Vulnerabilities
-
-Please review [our security policy](https://github.com/simonschaufi/typo3-installer/security/policy) on how to report security vulnerabilities.
-
 ## License
 
 TYPO3 Installer is open-sourced software licensed under the [MIT license](LICENSE.md).
