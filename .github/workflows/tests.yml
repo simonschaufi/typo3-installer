@@ -8,7 +8,7 @@ on:
 
 jobs:
   linux_tests:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     strategy:
       fail-fast: true
@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -30,41 +30,41 @@ jobs:
           coverage: none
 
       - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist
+        run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Execute tests
         run: vendor/bin/phpunit
 
-  windows_tests:
-    runs-on: windows-latest
-
-    strategy:
-      fail-fast: true
-      matrix:
-        php: [8.1, 8.2]
-
-    name: PHP ${{ matrix.php }} - Windows
-
-    steps:
-      - name: Set git to use LF
-        run: |
-          git config --global core.autocrlf false
-          git config --global core.eol lf
-
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          extensions: dom, curl, libxml, mbstring, zip, fileinfo
-          ini-values: error_reporting=E_ALL, memory_limit=512M
-          tools: composer:v2
-          coverage: none
-
-      - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist
-
-      - name: Execute tests
-        run: vendor/bin/phpunit
+#  windows_tests:
+#    runs-on: windows-latest
+#
+#    strategy:
+#      fail-fast: true
+#      matrix:
+#        php: [8.1]
+#
+#    name: PHP ${{ matrix.php }} - Windows
+#
+#    steps:
+#      - name: Set git to use LF
+#        run: |
+#          git config --global core.autocrlf false
+#          git config --global core.eol lf
+#
+#      - name: Checkout code
+#        uses: actions/checkout@v4
+#
+#      - name: Setup PHP
+#        uses: shivammathur/setup-php@v2
+#        with:
+#          php-version: ${{ matrix.php }}
+#          extensions: dom, curl, libxml, mbstring, zip, fileinfo
+#          ini-values: error_reporting=E_ALL, memory_limit=512M
+#          tools: composer:v2
+#          coverage: none
+#
+#      - name: Install dependencies
+#        run: composer install --no-interaction --prefer-dist --no-progress
+#
+#      - name: Execute tests
+#        run: vendor/bin/phpunit

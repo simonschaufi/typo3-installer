@@ -47,7 +47,7 @@ class NewCommand extends Command
 
         $name = $input->getArgument('name');
 
-        $directory = $name !== '.' ? getcwd() . '/' . $name : '.';
+        $directory = $this->getInstallationDirectory($name);
 
         $release = $input->getOption('release') ?: '';
 
@@ -61,12 +61,10 @@ class NewCommand extends Command
 
         $composer = $this->findComposer();
 
-        $installMinimalDistribution = $input->getOption('min');
-
-        $distribution = $installMinimalDistribution ? 'typo3/minimal' : 'typo3/cms-base-distribution';
+        $distribution = $input->getOption('min') ? 'typo3/minimal' : 'typo3/cms-base-distribution';
 
         $commands = [
-            $composer." create-project $distribution \"$directory\" \"$release\"",
+            $composer . " create-project $distribution \"$directory\" \"$release\"",
         ];
 
         if ($directory !== '.' && $input->getOption('force')) {
@@ -95,7 +93,7 @@ class NewCommand extends Command
     /**
      * Return the local machine's default Git branch if set or default to `main`
      */
-    protected function defaultBranch(): string
+    private function defaultBranch(): string
     {
         $process = new Process(['git', 'config', '--global', 'init.defaultBranch']);
 
@@ -109,10 +107,8 @@ class NewCommand extends Command
     /**
      * Create a Git repository and commit the base TYPO3 skeleton
      */
-    protected function createRepository(string $directory, InputInterface $input, OutputInterface $output): void
+    private function createRepository(string $directory, InputInterface $input, OutputInterface $output): void
     {
-        chdir($directory);
-
         $branch = $input->getOption('branch') ?: $this->defaultBranch();
 
         $commands = [
@@ -122,13 +118,13 @@ class NewCommand extends Command
             "git branch -M {$branch}",
         ];
 
-        $this->runCommands($commands, $input, $output);
+        $this->runCommands($commands, $input, $output, $directory);
     }
 
     /**
      * Create a GitHub repository and push the git log to it
      */
-    protected function pushToGitHub(
+    private function pushToGitHub(
         string $name,
         string $directory,
         InputInterface $input,
@@ -145,46 +141,47 @@ class NewCommand extends Command
             return;
         }
 
-        chdir($directory);
+        if (!$process->isSuccessful()) {
+            $output->writeln(
+                '  <bg=yellow;fg=black> WARN </> Make sure the "gh" CLI tool is installed and that you\'re authenticated to GitHub. Skipping...'
+                . PHP_EOL
+            );
+
+            return;
+        }
 
         $name = $input->getOption('organization') ? $input->getOption('organization') . "/$name" : $name;
         $flags = $input->getOption('github') ?: '--private';
-        $branch = $input->getOption('branch') ?: $this->defaultBranch();
 
         $commands = [
-            "gh repo create {$name} --source=. {$flags}",
-            "git -c credential.helper= -c credential.helper='!gh auth git-credential' push -q -u origin {$branch}",
+            "gh repo create {$name} --source=. --push {$flags}",
         ];
 
-        $this->runCommands($commands, $input, $output, ['GIT_TERMINAL_PROMPT' => 0]);
+        $this->runCommands($commands, $input, $output, $directory, ['GIT_TERMINAL_PROMPT' => 0]);
     }
 
     /**
      * Verify that the application does not already exist
      */
-    protected function verifyApplicationDoesntExist(string $directory): void
+    private function verifyApplicationDoesntExist(string $directory): void
     {
-        if ((is_dir($directory) || is_file($directory)) && $directory !== getcwd()) {
+        if ($directory !== getcwd() && (is_dir($directory) || is_file($directory))) {
             throw new RuntimeException('TYPO3 project already exists!');
         }
     }
 
     /**
-     * Get the version that should be downloaded
+     * Get the installation directory
      */
-    protected function getVersion(InputInterface $input): string
+    protected function getInstallationDirectory(string $name): string
     {
-        if ($input->getOption('dev')) {
-            return 'dev-master';
-        }
-
-        return '';
+        return $name !== '.' ? getcwd() . '/' . $name : '.';
     }
 
     /**
      * Get the composer command for the environment
      */
-    protected function findComposer(): string
+    private function findComposer(): string
     {
         $composerPath = getcwd() . '/composer.phar';
 
@@ -198,15 +195,20 @@ class NewCommand extends Command
     /**
      * Run the given commands
      */
-    protected function runCommands(
+    private function runCommands(
         array $commands,
         InputInterface $input,
         OutputInterface $output,
+        string $workingPath = null,
         array $env = []
     ): Process {
         if (!$output->isDecorated()) {
             $commands = array_map(static function ($value) {
-                if (substr($value, 0, 5) === 'chmod') {
+                if (str_starts_with($value, 'chmod')) {
+                    return $value;
+                }
+
+                if (str_starts_with($value, 'git')) {
                     return $value;
                 }
 
@@ -216,7 +218,11 @@ class NewCommand extends Command
 
         if ($input->getOption('quiet')) {
             $commands = array_map(static function ($value) {
-                if (substr($value, 0, 5) === 'chmod') {
+                if (str_starts_with($value, 'chmod')) {
+                    return $value;
+                }
+
+                if (str_starts_with($value, 'git')) {
                     return $value;
                 }
 
@@ -224,13 +230,13 @@ class NewCommand extends Command
             }, $commands);
         }
 
-        $process = Process::fromShellCommandline(implode(' && ', $commands), null, $env, null, null);
+        $process = Process::fromShellCommandline(implode(' && ', $commands), $workingPath, $env, null, null);
 
         if ('\\' !== DIRECTORY_SEPARATOR && file_exists('/dev/tty') && is_readable('/dev/tty')) {
             try {
                 $process->setTty(true);
             } catch (RuntimeException $e) {
-                $output->writeln('Warning: ' . $e->getMessage());
+                $output->writeln('  <bg=yellow;fg=black> WARN </> ' . $e->getMessage() . PHP_EOL);
             }
         }
 
